@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>HN by PureScript Thermite</title>
+    <script src="../node_modules/react/umd/react.development.js"></script>
+    <script src="../node_modules/react-dom/umd/react-dom.development.js"></script>
+    <script src="../node_modules/create-react-class/create-react-class.min.js"></script>
+    <script>
+      const requireTable = {
+        'react': window.React,
+        'react-dom': window.ReactDOM,
+        'create-react-class': window.createReactClass
+      }
+      if (typeof window.require == 'function') {
+        // Save a copy of this one
+        window._require = window.require;
+      }
+      window.require = name => requireTable[name];
+    </script>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+<script src="app.js"></script>
+</html>

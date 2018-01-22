@@ -18,11 +18,12 @@
     "purescript-profunctor-lenses": "^3.7.0",
     "purescript-react-dom": "^4.1.0",
     "purescript-generics-rep": "^5.3.0",
-    "purescript-strings-extra": "^1.0.1",
-    "purescript-smolder": "^10.2.0",
-    "purescript-smolder-dom": "^2.0.0"
+    "purescript-strings-extra": "^1.0.1"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
+  },
+  "resolutions": {
+    "purescript-react": "^5.0.0"
   }
 }

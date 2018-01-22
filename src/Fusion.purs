@@ -1,178 +1,126 @@
-module Fusion where
+module Fusion (
+  Component,
+  ActionHandler,
+  ActionDispatcher,
+  ChangeState,
+  Dispatchable,
+  Action,
+  ViewState,
+  Defaults,
+  module Exports,
+  hijack,
+  withState,
+  component
+) where
+
+-- Re-exports:
+import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Free (Free)
-import Data.Record.Builder as Builder
-import Prelude hiding (div)
-import React (ReactClass, ReactElement, ReactProps, ReactRefs, ReactState, ReadOnly, ReadWrite, createClass, createClassStateless', getChildren, getProps, preventDefault, readState, spec, transformState)
-import React.DOM.Props (className, onClick)
-import React.Spaces (SpaceF(..), SpaceM, elements, text, (!), (^^))
-import React.Spaces as RS
-import React.Spaces.DOM (button, div, span)
-import Type.Equality (class TypeEquals)
-
-renderSpaces = RS.render
-
-class Optional (possibilities :: # Type) (subset :: # Type)
-instance srInst :: Union subset delta possibilities => Optional possibilities subset
-
-class Props (mandatory :: # Type) (defaults :: # Type) (givenProps :: # Type)
-instance propsWithOptionals :: (Union subset delta defaults, Union subset mandatory givenProps) => Props mandatory defaults givenProps
-
-class IsComponent a
-
-type SpaceElements = SpaceM
-type SpaceNode = SpaceElements -> SpaceElements
-type ReactChildren = Array ReactElement
-
-type ComponentMeta props = { props :: props, renderChildren :: SpaceElements }
-
-type ComponentRender props = { props :: props, renderChildren :: SpaceElements } -> SpaceElements
-
+import Fusion.Utils (SpaceElements, ReactChildren, RenderedEffect, renderToDom) as Exports
+import Fusion.Utils (SpaceElements, type ($))
+import Fusion.Utils.Records (class GivenProps, class IntersectRow, class Props, combineGiven, combineProps, unionMerge, unsafeMerge)
+import Fusion.Utils.Records (class GivenProps, class Props, unsafeMerge, mapDefaults) as Exports
+import React (GetInitialState, ReactClass, ReactProps, ReactRefs, ReactState, ReactThis, ReadOnly, ReadWrite, createClass, createClassStateless', getChildren, getProps, preventDefault, readState, spec, spec', transformState)
+import React.Spaces (elements, text, (^), (^^))
+import React.Spaces (render) as RS
 
 type Component given = given -> SpaceElements -> SpaceElements
 
-type ComponentAndProps (mandatory :: # Type) (defaults :: # Type) (given :: # Type) = Record given -> SpaceElements -> SpaceElements
+type ChangeState eff = Eff (props :: ReactProps, refs :: ReactRefs ReadOnly, state :: ReactState ReadWrite | eff) Unit
 
-type ComponentView (props :: # Type) =  Record props -> SpaceElements -> SpaceElements
+-- | Unused at this moment, kept for... reasons.
+type Action input = forall eff. input -> ChangeState eff
 
-type ComponentWithDefaults mandatory defaults allProps = forall innerGiven innerAll.
-                                                        Props mandatory defaults innerGiven =>
-                                                        Union innerGiven defaults allProps =>
-                                                        TypeEquals (Record allProps) (Record innerAll) =>
-                                                        Record innerGiven -> SpaceElements -> SpaceElements
-                                                        -- ComponentAndProps (Record mandatory) (Record defaults) (Record allProps) (Record innerGiven)
+type ActionHandler action state = action -> state -> state
 
-merge :: forall combined first last. Union first last combined => { | first } -> { | last } -> { | combined }
-merge first last = Builder.build (Builder.merge last) first
+type ActionDispatcher action = forall eff. action -> ChangeState eff
 
-infixr 8 merge as ++
+type Dispatchable action = ( dispatch :: ActionDispatcher action )
 
 
--- collectPropsAndChildrenWithDefaults plainReactSpec =
---   \props children -> plainReactSpec ^^ props $ children
 
--- Props mandatory defaults given =>
-collectPropsAndChildren :: forall mandatory defaults given.
-                            ReactClass (Record given) ->
-                            -- returns
-                            ComponentAndProps mandatory defaults given
-collectPropsAndChildren plainReactSpec = \props children -> plainReactSpec ^^ props $ children
+type ViewState state action = state -> ActionDispatcher action -> SpaceElements
 
+renderSpaces = RS.render
+
+-- | Automagically preventDefault
+-- | Use like `button ! onClick $ hijackEvent \event -> doSomethingWith event`
 hijack fn = \event -> do
   preventDefault event
   pure $ fn event
 
+-- | Internal: Allows a render function to be called from within a React component
+-- | by converting ReactChildren to SpaceElements, and returning the
+-- | output of renderFn as ReactChildren again.
+wrapRenderer renderFn =
+  \props children -> renderSpaces $ renderFn props $ elements children
 
-type AsComponent mandatory defaults = forall optionalSubset all given.
-              Optional defaults optionalSubset =>
-              Union mandatory optionalSubset given =>
-              Union optionalSubset mandatory given =>
-              Union defaults given all =>
-              Union given defaults all =>
-              Record defaults ->
-              ComponentView all ->
-              ComponentAndProps mandatory defaults given
+-- | Internal: Takes a React component and gives it the ability to lift
+-- | into a SpaceElements free monad
+makeCollector cmp =
+  \props children -> cmp ^^ props $ children
 
-component :: forall mandatory defaults optionalSubset all given.
-              Optional defaults optionalSubset =>
-              Union mandatory optionalSubset given =>
-              Union defaults given all =>
-              Record defaults ->
-              ComponentView all ->
-              ComponentAndProps mandatory defaults given
-component defaultProps viewFn = collectPropsAndChildren componentClass
-  where
-    componentClass = createClassStateless' $ renderWrapper
-    renderWrapper :: Record given -> ReactChildren -> ReactChildren
-    renderWrapper givenProps children =
-      let
-        combinedProps :: Record all
-        combinedProps = (defaultProps ++ givenProps)
-        renderChildren :: SpaceElements
-        renderChildren = elements $ children
-      in renderSpaces $ viewFn combinedProps renderChildren
--- component :: forall defaults given combined.
---              Union defaults given combined
---           => Union given defaults combined
---           => ComponentRender (Record combined)
---           -> Record defaults
---           -> Component (Record given)
--- component viewFn defaultProps = collectPropsAndChildren componentClass
---   where
---     componentClass = createClassStateless' $ renderWrapper
---     renderWrapper :: Record given -> ReactChildren -> ReactChildren
---     renderWrapper givenProps children =
---       let
---         combinedProps :: Record combined
---         combinedProps = givenProps ++ defaultProps
---         renderChildren :: SpaceElements
---         renderChildren = elements $ children
---         definedProps :: { props :: Record combined, renderChildren :: SpaceElements }
---         definedProps = { props: combinedProps, renderChildren }
---       in renderSpaces $ viewFn definedProps
+-- | Internal: Kinda like wrapRenderer, but different?  Not really.
+encaseInReactView original props children =
+  renderSpaces $ original props $ elements children
 
-
-
--- componentSimple :: forall props.
---                    ComponentSimpleRender (Record props)
---                 -> Component (Record props)
--- componentSimple viewFn = collectPropsAndChildren componentClass
---   where
---     componentClass = createClassStateless' $ renderWrapper
---     renderWrapper :: Record props -> ReactChildren -> ReactChildren
---     renderWrapper givenProps children =
---       let
---         renderChildren :: SpaceElements
---         renderChildren = elements $ children
---       in renderSpaces $ viewFn givenProps renderChildren
-
+-- | Internal: Makes a dispatcher for a stateful component
+makeDispatcher :: forall props action state eff.
+                  ReactThis props state ->
+                  ActionHandler action state ->
+                  ActionDispatcher action
 makeDispatcher meta handler = \action -> transformState meta $ handler action
 
+-- type StateView state action = SpaceElements
+
+-- | Internal: Actually generates a Stateful react component, taking a Handler function,
+-- | an initial state value, and the original Component.
+statefulComponent :: forall state action eff.
+                     -- handler
+                     ActionHandler action (Record state) ->
+                     -- initialState
+                     Record state ->
+                     -- viewFn
+                     ViewState (Record state) action ->
+                     -- (Record state -> ActionDispatcher action eff -> SpaceElements) ->
+                     -- returns:
+                     SpaceElements
 statefulComponent handler initialState viewFn =
-  let
+  statefulWrapper ^ unit
+  where
+    statefulWrapper :: ReactClass Unit
+    statefulWrapper = createClass $ spec initialState $ statefulRenderFn
     statefulRenderFn meta = do
-      props <- getProps meta
       state <- readState meta
-      children <- getChildren meta
 
       let dispatch = makeDispatcher meta handler
+      pure $ renderSpaces $ viewFn state dispatch
 
-      pure $ renderSpaces $ viewFn $ {
-        props,
-        state,
-        dispatch,
-        renderChildren: elements $ children
-      }
-    statefulWrapper = createClass $ spec initialState $ statefulRenderFn
-  in collectPropsAndChildren statefulWrapper {}
+-- | Use dis one, not da one above, unless you really want.  I'm a comment, not a cop.
+withState = statefulComponent
 
-type Action input = forall eff. input -> Eff eff Unit
+type Defaults (vessel :: Type -> Type) =
+  forall given. vessel (Record given)
 
-type ReactEffect eff = Eff (props :: ReactProps, refs :: ReactRefs ReadOnly, state :: ReactState ReadWrite | eff) Unit
+-- | Creates a real react component, living, breathing, and probably dangerous!
+component = makeCollector <<< createClassStateless' <<< wrapRenderer
 
-type ChangeState result eff = ReactEffect eff
+-- makeWinning :: forall defaults mandatory given combined.
+--                Record defaults ->
+--                Component (Record combined) ->
+--                Complete Component combined
+-- makeWinning defaults view = combineProps defaults >>> view
 
-type StatefulHandler action combined = action -> combined -> combined
-type Dispatcher state action eff = action -> ChangeState (Record state) eff
-type Dispatchable state action props eff = { dispatch :: Dispatcher state action eff | props }
-type StatefulComponent state action props = props -> SpaceElements -> SpaceElements
+-- tabItemTwo :: Complete Component ( isActive :: Boolean, name :: String )
+-- tabItemTwo = unionMerge { isActive: false } >>> view where
+--     view { name, isActive } renderChildren = do
+--       text $ "theTab " <> name
 
--- withState :: forall action state props stateAndProps eff.
---              Union state props stateAndProps
---           -- handler:
---           => StatefulHandler action (Record state)
---           -- initialState:
---           -> Record state
---           -- originalComponent:
---           -> Component (Dispatchable state action stateAndProps eff)
---           -- returns:
---           -> StatefulComponent (Record state) action (Record props)
--- withState handler initialState originalComponent =
---   let
---     viewFn { renderChildren, props, state, dispatch } = do
---       originalComponent ( { dispatch } ++ state ++ props ) $ do renderChildren
---   in statefulComponent handler initialState viewFn
+-- tabItemTwo :: Defaults Component ( isActive :: Boolean ) ( name :: String )
+-- tabItemTwo = combineProps { isActive: false } >>> view where
+--     view { name, isActive } renderChildren = do
+--       text $ "theTab " <> name
 
-
--- ! onClick (\_ -> dispatch IncreasePower)
+-- whatTheHell :: SpaceElements
+-- whatTheHell = tabItemTwo { name: "meow" } do text "What"

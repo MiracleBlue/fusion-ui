@@ -30,3 +30,7 @@ output
 .pulp-*
 .psci_modules
 bower_components
+.DS_Store
+
+# Experimental folder
+src/example/experiments

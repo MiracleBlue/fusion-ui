@@ -2,8 +2,8 @@ module Main where
 
 import Prelude
 
-import Example.PowerLevel (powerLevelDemo)
-import Fusion.Utils (RenderedEffect, renderToDom)
+import Fusion.Example.PowerLevel (powerLevelDemo)
+import Fusion.Utils (renderToDom)
 
-main :: forall eff. RenderedEffect eff
+-- main :: forall eff. RenderedEffect eff
 main = renderToDom "app" powerLevelDemo

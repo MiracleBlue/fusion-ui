@@ -7,11 +7,16 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "examples:parcel": "parcel ./src/example/index.html",
+    "examples": "pulp --watch --then 'npm run examples:parcel' build -m Example.Main --to demo/index.js"
   },
   "dependencies": {
     "create-react-class": "^15.6.2",
     "react": "^16.1.1",
     "react-dom": "^16.1.1"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.5.1"
   }
 }

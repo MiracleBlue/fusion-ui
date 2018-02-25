@@ -31,6 +31,11 @@ output
 .psci_modules
 bower_components
 .DS_Store
+.psc-ide-port
+.purs-repl
+demo/
+dist/
+.cache/
 
 # Experimental folder
 src/example/experiments

@@ -18,7 +18,8 @@
     "purescript-profunctor-lenses": "^3.7.0",
     "purescript-react-dom": "^4.1.0",
     "purescript-generics-rep": "^5.3.0",
-    "purescript-strings-extra": "^1.0.1"
+    "purescript-strings-extra": "^1.0.1",
+    "purescript-neon": "^0.6.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"

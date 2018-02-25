@@ -22,15 +22,11 @@ type TabItemList tab = Array $ TabItem tab
 data TabEvents tab = ChangeTab tab
 type TabAction tab eff = tab -> ActionFx eff
 
-
 asTabItem :: forall tab. Showable tab => Eq tab => tab -> tab -> TabItem tab
 asTabItem activeTab tab = TabItem { tab, name, id, isActive } where
   name = asText tab
   id = snakeCase name
   isActive = tab == activeTab
-
--- allAsTabItems :: forall item. Showable item => Array item -> Array $ TabItem item
--- allAsTabItems = map asTabItem
 
 tabButton :: forall tab eff.
              Component { item :: TabItem tab, activate :: TabAction tab eff } (String -> HTML)
